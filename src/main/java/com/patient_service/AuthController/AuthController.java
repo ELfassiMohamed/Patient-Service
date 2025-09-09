@@ -22,7 +22,7 @@ import com.patient_service.JwtDTO.RegisterRequest;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/api/v2/auth")
+@RequestMapping("/api/auth")
 @CrossOrigin(origins = "*")
 public class AuthController {
 	    @Autowired

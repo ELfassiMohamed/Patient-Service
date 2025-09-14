@@ -1,8 +1,9 @@
-package com.patient_service.JwtCONFIG;
+package com.patient_service.config;
 
 import java.io.IOException;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -10,8 +11,8 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import com.patient_service.JWTService.JwtService;
-import com.patient_service.JWTService.PatientService;
+import com.patient_service.services.JwtService;
+import com.patient_service.services.PatientService;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -23,6 +24,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter{
 	@Autowired
     private JwtService jwtService;
     
+	@Lazy
     @Autowired
     private PatientService patientService;
     

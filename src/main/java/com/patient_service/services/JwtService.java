@@ -1,6 +1,7 @@
-package com.patient_service.JWTService;
+package com.patient_service.services;
 
 import java.security.Key;
+
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;

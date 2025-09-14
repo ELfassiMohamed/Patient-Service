@@ -1,4 +1,4 @@
-package com.patient_service.JwtCONFIG;
+package com.patient_service.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;

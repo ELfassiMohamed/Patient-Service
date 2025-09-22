@@ -50,18 +50,6 @@ public class Patient implements UserDetails{
     private String zipCode;
     private String country;
 
-    // Medical info
-    private String emergencyContactName;
-    private String emergencyContactPhone;
-    private String bloodType;
-    private String allergies;
-    private String currentMedications;
-    private String medicalConditions;
-
-    // Provider info
-    private String assignedProviderId;
-    private String assignedProviderName;
-
     // Constructors
     public Patient() {}
 
@@ -184,53 +172,6 @@ public class Patient implements UserDetails{
         this.updatedAt = LocalDateTime.now();
     }
 
-    public String getEmergencyContactName() { return emergencyContactName; }
-    public void setEmergencyContactName(String emergencyContactName) {
-        this.emergencyContactName = emergencyContactName;
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    public String getEmergencyContactPhone() { return emergencyContactPhone; }
-    public void setEmergencyContactPhone(String emergencyContactPhone) {
-        this.emergencyContactPhone = emergencyContactPhone;
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    public String getBloodType() { return bloodType; }
-    public void setBloodType(String bloodType) {
-        this.bloodType = bloodType;
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    public String getAllergies() { return allergies; }
-    public void setAllergies(String allergies) {
-        this.allergies = allergies;
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    public String getCurrentMedications() { return currentMedications; }
-    public void setCurrentMedications(String currentMedications) {
-        this.currentMedications = currentMedications;
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    public String getMedicalConditions() { return medicalConditions; }
-    public void setMedicalConditions(String medicalConditions) {
-        this.medicalConditions = medicalConditions;
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    public String getAssignedProviderId() { return assignedProviderId; }
-    public void setAssignedProviderId(String assignedProviderId) {
-        this.assignedProviderId = assignedProviderId;
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    public String getAssignedProviderName() { return assignedProviderName; }
-    public void setAssignedProviderName(String assignedProviderName) {
-        this.assignedProviderName = assignedProviderName;
-        this.updatedAt = LocalDateTime.now();
-    }
 
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
     public void setAccountNonExpired(boolean accountNonExpired) { this.accountNonExpired = accountNonExpired; }
@@ -248,7 +189,6 @@ public class Patient implements UserDetails{
     // Helper method to check if profile is complete
     public boolean isProfileComplete() {
         return firstName != null && lastName != null && phone != null &&
-               dateOfBirth != null && address != null && city != null &&
-               emergencyContactName != null && emergencyContactPhone != null;
+               dateOfBirth != null && address != null && city != null;
     }
 }

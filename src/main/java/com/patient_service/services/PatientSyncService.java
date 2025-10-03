@@ -35,11 +35,14 @@ public class PatientSyncService {
                     .map(this::convertToDTO)
                     .collect(Collectors.toList());
             
-            // Send response back to provider
-            String responseQueue = "provider.patients.response." + request.getProviderId();
-            rabbitTemplate.convertAndSend(responseQueue, patientDTOs);
+            // Send to proper exchange and routing key
+            rabbitTemplate.convertAndSend(
+                    RabbitConfig.PATIENT_EXCHANGE,
+                    RabbitConfig.PATIENT_SYNC_RESPONSE_ROUTING_KEY,
+                    patientDTOs
+            );
             
-            log.info("Sent {} patients to provider {}", patientDTOs.size(), request.getProviderId());
+            log.info("Sent {} patients to response queue", patientDTOs.size());
             
         } catch (Exception e) {
             log.error("Error processing sync request: {}", e.getMessage(), e);

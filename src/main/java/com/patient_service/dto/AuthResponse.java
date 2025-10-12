@@ -9,6 +9,8 @@ public class AuthResponse {
 	    private AccountStatus accountStatus;
 	    private boolean canAccessMedicalHistory;
 	    
+	    private String role;
+	    
 	    // Constructors
 	    public AuthResponse() {}
 	    
@@ -24,13 +26,14 @@ public class AuthResponse {
 
 
 		public AuthResponse(String token, String message, String email, AccountStatus accountStatus,
-				boolean canAccessMedicalHistory) {
+				boolean canAccessMedicalHistory, String role) {
 			super();
 			this.token = token;
 			this.message = message;
 			this.email = email;
 			this.accountStatus = accountStatus;
 			this.canAccessMedicalHistory = canAccessMedicalHistory;
+			this.role = role;
 		}
 
 
@@ -58,5 +61,13 @@ public class AuthResponse {
 	    
 	    public void setEmail(String email) {
 	        this.email = email;
+	    }
+	    
+	    public String getRole() {
+	        return role;
+	    }
+
+	    public void setRole(String role) {
+	        this.role = role;
 	    }
 }

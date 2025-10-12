@@ -54,7 +54,9 @@ public class AuthController {
                 "Registration successful. Your account is pending provider approval.", 
                 patient.getEmail(),
                 patient.getAccountStatus(),
-                patientService.canAccessMedicalHistory(patient)
+                patientService.canAccessMedicalHistory(patient),
+                patient.getRole().getAuthority()
+                		
             );
             
             return ResponseEntity.ok(response);
@@ -83,7 +85,8 @@ public class AuthController {
                 message, 
                 patient.getEmail(),
                 patient.getAccountStatus(),
-                patientService.canAccessMedicalHistory(patient)
+                patientService.canAccessMedicalHistory(patient),
+                patient.getRole().getAuthority()
             );
             
             return ResponseEntity.ok(response);
@@ -139,6 +142,7 @@ public class AuthController {
         PatientProfileDTO dto = new PatientProfileDTO();
         dto.setId(patient.getId());
         dto.setEmail(patient.getEmail());
+        //dto.setRole(patient.getRole());
         dto.setAccountStatus(patient.getAccountStatus());
         dto.setFirstName(patient.getFirstName());
         dto.setLastName(patient.getLastName());

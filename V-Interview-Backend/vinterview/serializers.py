@@ -54,10 +54,10 @@ class UserProfileSerializer(serializers.ModelSerializer):
 # NEW SCHEMAS FOR SWAGGER DOCUMENTATION
 # ==========================================
 
-class AuthUserSerializer(serializers.Serializer):
-    id = serializers.IntegerField()
-    username = serializers.CharField()
-    email = serializers.EmailField()
+class AuthUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'date_joined')
 
 class AuthResponseSerializer(serializers.Serializer):
     message = serializers.CharField()

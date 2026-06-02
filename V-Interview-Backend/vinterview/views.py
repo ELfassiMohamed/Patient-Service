@@ -5,7 +5,9 @@ from rest_framework.authentication import TokenAuthentication
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from django.conf import settings
-from django.contrib.auth import login, logout
+from django.contrib.auth import logout
+from django.db import transaction
+from django.db.models import Count
 from .serializers import (
     UserSignUpSerializer, UserSignInSerializer, UserProfileSerializer,
     AuthResponseSerializer, MessageResponseSerializer, InterviewEntryCreateSerializer,
@@ -64,6 +66,7 @@ def _call_ai_with_fallback(callable_fn):
 )
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@transaction.atomic
 def sign_up(request):
     """
     User registration endpoint
@@ -72,14 +75,11 @@ def sign_up(request):
     if serializer.is_valid():
         user = serializer.save()
         token, created = Token.objects.get_or_create(user=user)
-        
+        profile_serializer = UserProfileSerializer(user)
+
         return Response({
             'message': 'User created successfully',
-            'user': {
-                'id': user.id,
-                'username': user.username,
-                'email': user.email
-            },
+            'user': profile_serializer.data,
             'token': token.key
         }, status=status.HTTP_201_CREATED)
     
@@ -97,6 +97,7 @@ def sign_up(request):
 )
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@transaction.atomic
 def sign_in(request):
     """
     User login endpoint
@@ -105,15 +106,11 @@ def sign_in(request):
     if serializer.is_valid():
         user = serializer.validated_data['user']
         token, created = Token.objects.get_or_create(user=user)
-        login(request, user)
-        
+
+        profile_serializer = UserProfileSerializer(user)
         return Response({
             'message': 'Login successful',
-            'user': {
-                'id': user.id,
-                'username': user.username,
-                'email': user.email
-            },
+            'user': profile_serializer.data,
             'token': token.key
         }, status=status.HTTP_200_OK)
     
@@ -313,10 +310,18 @@ def generate_interview_questions(request):
 def get_user_entries(request):
     """Get all interview entries for the authenticated user"""
     try:
-        entries = InterviewEntries.objects.filter(user=request.user).order_by('-created_at')
+        page = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get('page_size', 20))
+        offset = (page - 1) * page_size
+
+        entries = InterviewEntries.objects.filter(user=request.user).order_by('-created_at').annotate(
+            question_count=Count('question')
+        )
+        total = entries.count()
+        page_entries = entries[offset:offset + page_size]
         entries_data = []
         
-        for entry in entries:
+        for entry in page_entries:
             entries_data.append({
                 'entryID': entry.entry_id,
                 'jobTitle': entry.job_title,
@@ -324,12 +329,18 @@ def get_user_entries(request):
                 'industry': entry.industry,
                 'jobDescription': entry.job_description,
                 'createdAt': entry.created_at,
-                'questionCount': entry.question_set.count()
+                'questionCount': entry.question_count
             })
         
         return Response({
             'success': True,
-            'entries': entries_data
+            'entries': entries_data,
+            'pagination': {
+                'page': page,
+                'page_size': page_size,
+                'total': total,
+                'total_pages': (total + page_size - 1) // page_size
+            }
         })
         
     except Exception as e:
@@ -398,41 +409,42 @@ def submit_answers(request, entry_id):
             }, status=status.HTTP_400_BAD_REQUEST)
         
         # 4. Get all questions for this interview
-        questions = Question.objects.filter(interview_entries=interview_entry).order_by('question_order')
-        
-        if len(answers_data) != questions.count():
+        questions = list(Question.objects.filter(interview_entries=interview_entry).order_by('question_order'))
+        question_map = {q.question_id: q for q in questions}
+
+        if len(answers_data) != len(questions):
             return Response({
                 'success': False,
-                'error': f'Expected {questions.count()} answers, got {len(answers_data)}'
+                'error': f'Expected {len(questions)} answers, got {len(answers_data)}'
             }, status=status.HTTP_400_BAD_REQUEST)
-        
+
         # 5. Save answers to database
         saved_answers = []
         for answer_data in answers_data:
-            try:
-                question = questions.get(question_id=answer_data['questionID'])
-                answer = Answer.objects.create(
-                    question=question,
-                    interview_entries=interview_entry,
-                    answer_text=answer_data.get('answerText', ''),
-                    time_spent=answer_data.get('timeSpent')
-                )
-                saved_answers.append(answer)
-            except Question.DoesNotExist:
-                # Clean up any created answers if there's an error
+            question = question_map.get(answer_data['questionID'])
+            if not question:
                 Answer.objects.filter(interview_entries=interview_entry).delete()
                 return Response({
                     'success': False,
                     'error': f'Question with ID {answer_data["questionID"]} not found'
                 }, status=status.HTTP_400_BAD_REQUEST)
-        
+            answer = Answer.objects.create(
+                question=question,
+                interview_entries=interview_entry,
+                answer_text=answer_data.get('answerText', ''),
+                time_spent=answer_data.get('timeSpent')
+            )
+            saved_answers.append(answer)
+
         # 6. Prepare data for AI evaluation
+        saved_answers_qs = Answer.objects.filter(interview_entries=interview_entry)
+        answer_map = {a.question_id: a for a in saved_answers_qs}
         qa_pairs = []
         for question in questions:
-            answer = Answer.objects.get(question=question, interview_entries=interview_entry)
+            answer = answer_map.get(question.question_id)
             qa_pairs.append({
                 'question': question.question_text,
-                'answer': answer.answer_text,
+                'answer': answer.answer_text if answer else '',
                 'difficulty': question.difficulty
             })
         
@@ -521,27 +533,20 @@ def get_interview_results(request, entry_id):
             }, status=status.HTTP_404_NOT_FOUND)
         
         # 3. Get questions and answers for detailed view
+        questions = list(Question.objects.filter(interview_entries=interview_entry).order_by('question_order'))
+        answers = Answer.objects.filter(interview_entries=interview_entry)
+        answer_map = {a.question_id: a for a in answers}
+
         questions_with_answers = []
-        questions = Question.objects.filter(interview_entries=interview_entry).order_by('question_order')
-        
         for question in questions:
-            try:
-                answer = Answer.objects.get(question=question, interview_entries=interview_entry)
-                questions_with_answers.append({
-                    'questionID': question.question_id,
-                    'questionText': question.question_text,
-                    'difficulty': question.difficulty,
-                    'answerText': answer.answer_text,
-                    'timeSpent': answer.time_spent
-                })
-            except Answer.DoesNotExist:
-                questions_with_answers.append({
-                    'questionID': question.question_id,
-                    'questionText': question.question_text,
-                    'difficulty': question.difficulty,
-                    'answerText': '',
-                    'timeSpent': None
-                })
+            answer = answer_map.get(question.question_id)
+            questions_with_answers.append({
+                'questionID': question.question_id,
+                'questionText': question.question_text,
+                'difficulty': question.difficulty,
+                'answerText': answer.answer_text if answer else '',
+                'timeSpent': answer.time_spent if answer else None
+            })
         
         # 4. Return comprehensive results
         return Response({
@@ -587,7 +592,15 @@ def get_user_interview_history(request):
     Get all interview history for the authenticated user with results
     """
     try:
-        entries = InterviewEntries.objects.filter(user=request.user).order_by('-created_at')
+        page = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get('page_size', 20))
+        offset = (page - 1) * page_size
+
+        entries_qs = InterviewEntries.objects.filter(user=request.user).order_by('-created_at').annotate(
+            question_count=Count('question')
+        ).select_related('interviewresult')
+        total = entries_qs.count()
+        entries = entries_qs[offset:offset + page_size]
         history = []
         
         for entry in entries:
@@ -597,23 +610,28 @@ def get_user_interview_history(request):
                 'experienceLevel': entry.experience_level,
                 'industry': entry.industry,
                 'createdAt': entry.created_at,
-                'questionCount': entry.question_set.count(),
+                'questionCount': entry.question_count,
                 'status': 'completed' if hasattr(entry, 'interviewresult') else 'pending'
             }
             
             # Add results if available
             if hasattr(entry, 'interviewresult'):
-                result = entry.interviewresult
                 entry_data['results'] = {
-                    'overallScore': result.overall_score,
-                    'completedAt': result.created_at
+                    'overallScore': entry.interviewresult.overall_score,
+                    'completedAt': entry.interviewresult.created_at
                 }
             
             history.append(entry_data)
         
         return Response({
             'success': True,
-            'history': history
+            'history': history,
+            'pagination': {
+                'page': page,
+                'page_size': page_size,
+                'total': total,
+                'total_pages': (total + page_size - 1) // page_size
+            }
         })
         
     except Exception as e:

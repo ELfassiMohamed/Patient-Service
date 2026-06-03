@@ -76,9 +76,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const response = await apiSignIn({ email, password })
     localStorage.setItem("auth_token", response.token)
     setToken(response.token)
-    // Fetch full profile after login
-    const profile = await getProfile()
-    setUser(profile)
+    // The backend now returns full user profile in the auth response
+    setUser(response.user as UserProfile)
+    // Refresh full profile in background (non-blocking)
+    getProfile().then(setUser).catch(() => {})
   }, [])
 
   const signup = useCallback(async (username: string, email: string, password: string) => {
@@ -90,9 +91,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
     localStorage.setItem("auth_token", response.token)
     setToken(response.token)
-    // Fetch full profile after signup
-    const profile = await getProfile()
-    setUser(profile)
+    // The backend now returns full user profile in the auth response
+    setUser(response.user as UserProfile)
+    // Refresh full profile in background (non-blocking)
+    getProfile().then(setUser).catch(() => {})
   }, [])
 
   const logout = useCallback(async () => {
